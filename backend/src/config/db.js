@@ -1,18 +1,34 @@
-
+import fs from "node:fs";
 import pg from "pg";
-import "dotenv/config";
 
 const { Pool } = pg;
 
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: true,
-  },
-  max: 5,
-  connectionTimeoutMillis: 10000,
-});
+function sslConfig(env) {
+  if (env.DATABASE_SSL === "disable") {
+    return false; // local development only
+  }
+  const config = { rejectUnauthorized: true };
+  if (env.DATABASE_SSL_CA_PATH) {
+    config.ca = fs.readFileSync(env.DATABASE_SSL_CA_PATH, "utf8");
+  }
+  return config;
+}
 
-pool.on("error", (error) => {
-  console.error("Unexpected database pool error:", error.message);
-});
+export function createPool(env = process.env) {
+  if (!env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not set");
+  }
+
+  const pool = new Pool({
+    connectionString: env.DATABASE_URL,
+    ssl: sslConfig(env),
+    max: 5,
+    connectionTimeoutMillis: 10000,
+  });
+
+  pool.on("error", (error) => {
+    console.error("Unexpected database pool error:", error.message);
+  });
+
+  return pool;
+}
