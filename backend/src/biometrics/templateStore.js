@@ -1,18 +1,30 @@
 const MODALITIES = new Set(["fingerprint", "iris"]);
 
 /**
- * Save an encrypted biometric template. Runs in ONE transaction on the given
- * client: any existing active template for the same citizen+modality is marked
- * superseded, then the new one is inserted as active.
+ * Save an encrypted biometric template through the database function
+ * identity.api_store_template (migration 004).
  *
- * `client` must be a checked-out pg client (pool.connect()), not the pool.
- * NOTE: untested against a live database so far; see test/templateStore.test.js
- * for the query-order test with a fake client.
+ * The backend role has no table privileges, so this is the ONLY write path.
+ * The function checks the acting staff member, supersedes any active template
+ * for the same citizen + modality, inserts the new one and writes the audit
+ * event, all in one transaction. No BEGIN/COMMIT is needed here.
+ *
+ * `db` is anything with query(sql, params): a pool or a client.
+ * Only ciphertext ever leaves this function.
  */
 export async function saveTemplate(
-  client,
+  db,
   cipher,
-  { citizenId, modality, templateVersion, qualityScore, capturedBy, template },
+  {
+    citizenId,
+    modality,
+    templateVersion,
+    qualityScore = null,
+    capturedBy, // acting staff user_id
+    template,
+    requestId = null,
+    sourceIp = null,
+  },
 ) {
   if (!MODALITIES.has(modality)) {
     throw new Error(`Unsupported modality "${modality}"`);
@@ -27,26 +39,9 @@ export async function saveTemplate(
     templateVersion,
   });
 
-  await client.query("BEGIN");
-  try {
-    await client.query(
-      `UPDATE identity.biometric_templates
-          SET status = 'superseded'
-        WHERE citizen_id = $1 AND modality = $2 AND status = 'active'`,
-      [citizenId, modality],
-    );
-    const { rows } = await client.query(
-      `INSERT INTO identity.biometric_templates
-         (citizen_id, modality, template_ciphertext, encryption_key_id,
-          template_version, quality_score, captured_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING template_id`,
-      [citizenId, modality, ciphertext, keyId, templateVersion, qualityScore, capturedBy],
-    );
-    await client.query("COMMIT");
-    return rows[0].template_id;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  }
+  const { rows } = await db.query(
+    `SELECT identity.api_store_template($1, $2, $3, $4, $5, $6, $7, $8, $9) AS template_id`,
+    [capturedBy, citizenId, modality, ciphertext, keyId, templateVersion, qualityScore, requestId, sourceIp],
+  );
+  return rows[0].template_id;
 }

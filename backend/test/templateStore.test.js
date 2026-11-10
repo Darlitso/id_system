@@ -17,36 +17,52 @@ const input = {
   template: randomBytes(64),
 };
 
-function fakeClient({ failOn } = {}) {
+function fakeDb({ fail } = {}) {
   const calls = [];
   return {
     calls,
     async query(sql, params) {
-      calls.push({ sql: sql.trim().split(/\s+/)[0], params });
-      if (failOn && sql.includes(failOn)) throw new Error("boom");
+      calls.push({ sql: sql.trim(), params });
+      if (fail) throw new Error("boom");
       return { rows: [{ template_id: "t-1" }] };
     },
   };
 }
 
-test("supersedes then inserts inside a transaction, storing ciphertext only", async () => {
-  const client = fakeClient();
-  const id = await saveTemplate(client, cipher, input);
+test("stores through the database function, sending ciphertext only", async () => {
+  const db = fakeDb();
+  const id = await saveTemplate(db, cipher, { ...input, requestId: "r-1", sourceIp: "10.0.0.1" });
   assert.equal(id, "t-1");
-  assert.deepEqual(client.calls.map((c) => c.sql), ["BEGIN", "UPDATE", "INSERT", "COMMIT"]);
-  const insertParams = client.calls[2].params;
-  assert.ok(Buffer.isBuffer(insertParams[2]));
-  assert.notDeepEqual(insertParams[2], input.template);
-  assert.equal(insertParams[3], "k1");
+  assert.equal(db.calls.length, 1);
+  assert.match(db.calls[0].sql, /identity\.api_store_template/);
+  const [actor, citizen, modality, ciphertext, keyId, version, quality, requestId, ip] = db.calls[0].params;
+  assert.equal(actor, input.capturedBy);
+  assert.equal(citizen, input.citizenId);
+  assert.equal(modality, "iris");
+  assert.ok(Buffer.isBuffer(ciphertext));
+  assert.notDeepEqual(ciphertext, input.template);
+  assert.equal(keyId, "k1");
+  assert.equal(version, "v1");
+  assert.equal(quality, 90);
+  assert.equal(requestId, "r-1");
+  assert.equal(ip, "10.0.0.1");
 });
 
-test("rolls back on failure", async () => {
-  const client = fakeClient({ failOn: "INSERT" });
-  await assert.rejects(() => saveTemplate(client, cipher, input), /boom/);
-  assert.equal(client.calls.at(-1).sql, "ROLLBACK");
+test("never sends the plaintext template to the database", async () => {
+  const db = fakeDb();
+  await saveTemplate(db, cipher, input);
+  for (const p of db.calls[0].params) {
+    if (Buffer.isBuffer(p)) assert.ok(!p.equals(input.template));
+  }
 });
 
-test("rejects bad modality / empty template", async () => {
-  await assert.rejects(() => saveTemplate(fakeClient(), cipher, { ...input, modality: "face" }));
-  await assert.rejects(() => saveTemplate(fakeClient(), cipher, { ...input, template: Buffer.alloc(0) }));
+test("propagates database errors (e.g. permission denied)", async () => {
+  await assert.rejects(() => saveTemplate(fakeDb({ fail: true }), cipher, input), /boom/);
+});
+
+test("rejects bad modality / empty template before touching the database", async () => {
+  const db = fakeDb();
+  await assert.rejects(() => saveTemplate(db, cipher, { ...input, modality: "face" }));
+  await assert.rejects(() => saveTemplate(db, cipher, { ...input, template: Buffer.alloc(0) }));
+  assert.equal(db.calls.length, 0);
 });
