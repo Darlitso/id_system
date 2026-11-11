@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NIDS Console (live)</title>
+<style>
+:root{--bg:#0a0e13;--panel:#111821;--panel2:#0d131a;--line:#1e2a37;--tx:#d7e3ef;--mut:#7f92a6;--acc:#2dd4bf;--acc2:#38bdf8;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+aside{background:var(--panel2);border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+.brand{font-family:var(--mono);font-weight:700;letter-spacing:.14em;color:var(--acc);padding:4px 8px 14px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.brand small{display:block;color:var(--mut);font-weight:400;letter-spacing:.03em;font-size:11px;margin-top:3px}
+#nav{display:flex;flex-direction:column;gap:4px}
+#nav button{display:flex;align-items:center;gap:10px;background:none;border:1px solid transparent;color:var(--mut);padding:9px 10px;border-radius:8px;cursor:pointer;font:inherit;text-align:left}
+#nav button span{font-family:var(--mono);color:var(--acc);width:16px}
+#nav button:hover{background:#15202b;color:var(--tx)}
+#nav button.on{background:#0f2529;border-color:#1c4a4d;color:var(--tx)}
+#nav em{margin-left:auto;font-style:normal;font-family:var(--mono);font-size:11px;background:var(--warn);color:#111;border-radius:10px;padding:0 7px}
+.side-foot{margin-top:auto;font-size:11px;color:var(--mut);font-family:var(--mono);padding:8px;border-top:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:14px;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--panel2);position:sticky;top:0;z-index:5;flex-wrap:wrap}
+.top h1{font-size:16px;margin:0;font-weight:600}
+.sp{flex:1}
+.pill{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--line);color:var(--mut)}
+.pill.ok{color:var(--ok);border-color:#1b4d2c}.pill.warn{color:var(--warn);border-color:#5a4210}
+.top select{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+main{padding:24px;max-width:1200px}
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:16px}
+.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-bottom:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card h3{margin:0 0 12px;font-size:12px;font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.kpi label{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+.kpi b{display:block;font-size:30px;font-family:var(--mono);color:var(--acc);margin:2px 0}
+.kpi small{color:var(--mut)}
+.donutwrap{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.dn{position:relative;width:140px;height:140px}
+.dn svg{transform:rotate(-90deg)}
+.dn span{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);font-size:22px}
+.legend{list-style:none;margin:0;padding:0;font-size:13px}
+.legend li{display:flex;gap:8px;align-items:center;margin:4px 0}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.bars{display:flex;gap:10px;align-items:flex-end;height:150px}
+.bars div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;font-family:var(--mono);font-size:11px;color:var(--mut)}
+.bars i{display:block;width:100%;background:linear-gradient(var(--acc2),var(--acc));border-radius:5px 5px 0 0;min-height:3px}
+.feed{list-style:none;margin:0;padding:0;font-family:var(--mono);font-size:12px}
+.feed li{padding:7px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap}
+.feed time{color:var(--mut)}
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:left;padding:8px;border-bottom:1px solid var(--line);font-weight:600}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:hover td{background:#0f1720}
+.mono{font-family:var(--mono);font-size:12.5px}
+.tw{overflow-x:auto}
+.b{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:20px;background:#1a2430;color:var(--mut);white-space:nowrap}
+.b.active,.b.approved,.b.verified,.b.success{background:#0f2a1a;color:var(--ok)}
+.b.pending,.b.submitted,.b.pending_review,.b.matching{background:#2b2210;color:var(--warn)}
+.b.flagged,.b.suspended,.b.rejected,.b.denied,.b.failure,.b.revoked,.b.confirmed_duplicate{background:#2d1316;color:var(--bad)}
+.btn{background:#16212c;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font:inherit;cursor:pointer}
+.btn:hover{border-color:var(--acc)}
+.btn.pri{background:var(--acc);color:#04201c;border-color:var(--acc);font-weight:600}
+.btn.ok{background:#0f2a1a;color:var(--ok);border-color:#1b4d2c}
+.btn.bad{background:#2d1316;color:var(--bad);border-color:#5b2025}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.chip{background:none;border:1px solid var(--line);color:var(--mut);border-radius:20px;padding:4px 12px;cursor:pointer;font:inherit;font-size:13px}
+.chip.on{border-color:var(--acc);color:var(--acc)}
+input,select{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 10px;font:inherit}
+input:focus,select:focus{outline:1px solid var(--acc);border-color:var(--acc)}
+.term{background:#070a0e;border:1px solid var(--line);border-radius:10px;padding:14px;font-family:var(--mono);font-size:13px;min-height:200px;max-height:340px;overflow:auto}
+.term div{margin:3px 0}.term .ok{color:var(--ok)}.term .bad{color:var(--bad)}.term .dim{color:var(--mut)}
+.mc{display:grid;gap:10px}
+.score{height:8px;background:#1a2430;border-radius:6px;overflow:hidden;margin:6px 0}
+.score i{display:block;height:100%;background:linear-gradient(90deg,var(--warn),var(--bad))}
+dialog{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:14px;padding:22px;width:min(480px,92vw)}
+dialog::backdrop{background:#000a}
+dialog label{display:block;font-size:12px;font-family:var(--mono);color:var(--mut);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.06em}
+dialog input,dialog select{width:100%}
+#toast{position:fixed;right:20px;bottom:20px;display:grid;gap:8px;z-index:20}
+#toast div{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);padding:10px 14px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px #0008}
+#toast div.bad{border-left-color:var(--bad)}
+.hint{color:var(--mut);font-size:12px;margin-top:10px}
+label.pill{cursor:pointer}
+.bio{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;background:var(--panel2)}
+.bio small{display:block;color:var(--mut);font-family:var(--mono);font-size:11px}
+dialog{max-height:92vh;overflow:auto}
+label.pill input{padding:0;margin:0 6px 0 0;vertical-align:middle;width:auto}
+.idc{border:1px solid #1c4a4d;border-radius:12px;padding:18px;background:linear-gradient(135deg,#0f2529,#111821)}
+.idh{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--acc)}
+.idn{font-family:var(--mono);font-size:30px;letter-spacing:.06em;margin:10px 0 14px;color:#fff}
+.idg{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px}
+.idg label{margin:0 0 2px}
+.idnote{font-size:11px;color:var(--mut);margin-top:14px;font-family:var(--mono)}
+@media(max-width:820px){.app{grid-template-columns:1fr}aside{position:static;height:auto}#nav{flex-direction:row;flex-wrap:wrap}.side-foot{display:none}}
+
+.login{max-width:380px;margin:12vh auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px}
+.login h2{margin:0 0 4px;font-family:var(--mono);letter-spacing:.12em;color:var(--acc)}
+.login p{color:var(--mut);margin:0 0 16px}
+.login label{display:block;font-size:12px;font-family:var(--mono);color:var(--mut);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.06em}
+.login input{width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.err{color:var(--bad);min-height:20px;margin-top:10px;font-size:13px}
+.steps{font-family:var(--mono);font-size:11px;color:var(--mut);white-space:nowrap}
+.steps b{color:var(--ok);font-weight:400}
+.log{background:#070a0e;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:12.5px;min-height:120px;margin:10px 0}
+.log div{margin:3px 0}.log .ok{color:var(--ok)}.log .bad{color:var(--bad)}.log .dim{color:var(--mut)}
+.pill.live{color:var(--ok);border-color:#1b4d2c}
+table .btn{padding:4px 10px;font-size:13px}
+</style>
+</head>
+<body>
+<div id="login" class="login" hidden>
+ <h2>NIDS CONSOLE</h2>
+ <p>Sign in with your staff account.</p>
+ <label>Username</label><input id="lu" autocomplete="username">
+ <div class="chips" id="lchips"></div>
+ <label>Password</label><input id="lp" type="password" autocomplete="current-password">
+ <button class="btn pri" style="width:100%;margin-top:16px" onclick="doLogin()">Sign in</button>
+ <div class="err" id="lerr"></div>
+</div>
+
+<div class="app" id="app" hidden>
+ <aside>
+  <div class="brand">NIDS CONSOLE<small>National Digital Identity System</small></div>
+  <nav id="nav"></nav>
+  <div class="side-foot" id="sfoot"></div>
+ </aside>
+ <div>
+  <div class="top">
+   <h1 id="title"></h1><span class="sp"></span>
+   <span class="pill live">&#9679; CONNECTED TO DATABASE</span>
+   <span class="pill" id="who"></span>
+   <button class="btn" onclick="logout()">Sign out</button>
+  </div>
+  <main id="main"></main>
+ </div>
+</div>
+
+<dialog id="dlg"><div id="dlgBody"></div></dialog>
+<div id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API=(window.NIDS_API_BASE||'http://localhost:3000')+'/api';
+const ts=()=>new Date().toISOString().replace('T',' ').slice(0,19);
+const fmt=d=>d?String(d).replace('T',' ').slice(0,16):'-';
+
+/* Which screens each role sees. The DATABASE enforces permissions; this only tidies the menu. */
+const ALL=['overview','enrol','matches','citizens','verify','audit'];
+const ROLES={
+ registration_officer:{label:'Registration Officer',views:['overview','enrol','citizens']},
+ reviewer:{label:'Reviewer',views:['overview','enrol','matches','citizens']},
+ administrator:{label:'Administrator',views:ALL},
+ service_provider:{label:'Service Provider',views:['verify']},
+ auditor:{label:'Auditor',views:['overview','citizens','audit']}
+};
+const NAV={overview:['Overview','&#9672;'],enrol:['Enrolments','&#9636;'],matches:['Match review','&#9007;'],citizens:['Citizens','&#9673;'],verify:['Verify identity','&#8981;'],audit:['Audit log','&#8803;']};
+const TITLES={overview:'Operations overview',enrol:'Enrolments',matches:'Duplicate match review',citizens:'Citizen register',verify:'Verification console',audit:'Audit trail'};
+const can={
+ enrol:()=>['registration_officer','administrator'].includes(me.role),
+ decide:()=>['reviewer','administrator'].includes(me.role)
+};
+
+let token=sessionStorage.getItem('nids_token');
+let me=JSON.parse(sessionStorage.getItem('nids_user')||'null');
+let features={simulator:false,dedupEnabled:false};
+let view='overview', ef='all', cq='', af={o:'all',q:''};
+let current=null; // enrolment being captured
+const vlog=[{c:'dim',m:'Verification service ready. Enter an identity number.'}];
+
+async function api(method,path,body){
+ const res=await fetch(API+path,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});
+ let data=null;try{data=await res.json()}catch{/* empty body */}
+ if(res.status===401&&path!=='/auth/login'){logout(true);throw new Error('Session expired. Please sign in again.')}
+ if(!res.ok)throw new Error((data&&data.message)||('Request failed ('+res.status+')'));
+ return data;
+}
+function toast(msg,bad){const d=document.createElement('div');if(bad)d.className='bad';d.textContent=msg;$('#toast').appendChild(d);setTimeout(()=>d.remove(),4000)}
+const badge=s=>`<span class="b ${esc(s)}">${esc(s)}</span>`;
+
+/* ---------- login / session ---------- */
+function showLogin(){
+ $('#app').hidden=true;$('#login').hidden=false;
+ $('#lchips').innerHTML=['officer.lusaka','reviewer.one','provider.bank','auditor.one','admin.one'].map(u=>`<button class="chip" onclick="$('#lu').value='${u}';$('#lp').focus()">${u}</button>`).join('');
+ $('#lp').value='';$('#lerr').textContent='';
+}
+async function doLogin(){
+ $('#lerr').textContent='';
+ try{
+  const r=await api('POST','/auth/login',{username:$('#lu').value.trim(),password:$('#lp').value});
+  token=r.token;me=r.user;
+  sessionStorage.setItem('nids_token',token);sessionStorage.setItem('nids_user',JSON.stringify(me));
+  await start();
+ }catch(e){$('#lerr').textContent=e.message}
+}
+function logout(expired){
+ token=null;me=null;sessionStorage.clear();
+ showLogin();
+ if(expired)$('#lerr').textContent='Session expired. Please sign in again.';
+}
+async function start(){
+ $('#login').hidden=true;$('#app').hidden=false;
+ try{features=await api('GET','/features')}catch{/* menu still works */}
+ $('#who').textContent=me.name+' | '+ROLES[me.role].label;
+ $('#sfoot').innerHTML='LIVE DATA<br>simulator: '+(features.simulator?'on':'off')+'<br>duplicate search: '+(features.dedupEnabled?'on':'off');
+ view=ROLES[me.role].views[0];
+ await render();
+}
+function go(v){view=v;render()}
+
+/* ---------- rendering ---------- */
+let renderSeq=0;
+async function render(){
+ $('#nav').innerHTML=ROLES[me.role].views.map(v=>`<button class="${v===view?'on':''}" onclick="go('${v}')"><span>${NAV[v][1]}</span>${NAV[v][0]}</button>`).join('');
+ $('#title').textContent=TITLES[view];
+ const mine=++renderSeq; // if several refreshes overlap, only the newest may draw
+ let html;
+ try{html=await V[view]()}
+ catch(e){html=`<div class="card">${esc(e.message)}</div>`}
+ if(mine===renderSeq)$('#main').innerHTML=html;
+}
+const V={};
+
+function donut(by){
+ const cols={active:'#22c55e',pending:'#f59e0b',suspended:'#ef4444',deceased:'#64748b',revoked:'#a855f7'};
+ const tot=Object.values(by).reduce((a,b)=>a+Number(b),0)||1;let off=0,segs='',leg='';
+ for(const k in cols){const n=Number(by[k]||0);if(!n)continue;const p=n/tot*100;
+  segs+=`<circle r="15.9155" cx="21" cy="21" fill="none" stroke="${cols[k]}" stroke-width="5" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="${-off}"/>`;off+=p;
+  leg+=`<li><i style="background:${cols[k]}"></i>${k} <b class="mono">${n}</b></li>`}
+ return `<div class="donutwrap"><div class="dn"><svg viewBox="0 0 42 42" width="140" height="140">${segs}</svg><span>${Object.values(by).reduce((a,b)=>a+Number(b),0)}</span></div><ul class="legend">${leg}</ul></div>`;
+}
+function bars(days){
+ const m=Math.max(...days.map(d=>Number(d.count)),1);
+ return `<div class="bars">${days.map(d=>`<div>${Number(d.count)}<i style="height:${Number(d.count)/m*100}%"></i>${esc(new Date(d.day+'T00:00:00').toLocaleDateString('en',{weekday:'short'}))}</div>`).join('')}</div>`;
+}
+V.overview=async()=>{
+ const s=await api('GET','/stats');
+ return `<div class="grid kpis">
+  <div class="card kpi"><label>Registered citizens</label><b>${Number(s.citizens_total)}</b><small>${Number(s.by_status.active||0)} active</small></div>
+  <div class="card kpi"><label>Review queue</label><b>${Number(s.queue)}</b><small>enrolments awaiting decision</small></div>
+  <div class="card kpi"><label>Open match cases</label><b>${Number(s.open_matches)}</b><small>possible duplicates</small></div>
+  <div class="card kpi"><label>Verifications</label><b>${Number(s.verifications_total)}</b><small>all time</small></div></div>
+  <div class="grid two"><div class="card"><h3>Citizens by status</h3>${donut(s.by_status)}</div>
+  <div class="card"><h3>Enrolments, last 7 days</h3>${bars(s.enrolments_by_day)}</div></div>`;
+};
+
+function steps(e){
+ const bio=e.fingerprint_quality!==null&&e.iris_quality!==null;
+ const rev=e.status==='approved'||e.status==='rejected';
+ const d=(on,t)=>on?`<b>&#9679; ${t}</b>`:`&#9675; ${t}`;
+ return `<span class="steps">${d(true,'submitted')} ${d(bio,'biometrics')} ${d(rev,'reviewed')} ${d(e.status==='approved','issued')}</span>`;
+}
+V.enrol=async()=>{
+ const list=await api('GET','/enrolments'+(ef==='all'?'':'?status='+ef));
+ const sts=['all','submitted','flagged','approved','rejected'];
+ const rows=list.map(e=>{
+  const open=['submitted','flagged','matching'].includes(e.status);
+  let act='';
+  if(open&&can.enrol()&&(e.fingerprint_quality===null||e.iris_quality===null))act+=`<button class="btn" data-id="${esc(e.enrolment_id)}" data-name="${esc(e.citizen_name)}" onclick="openCapture(this.dataset.id,this.dataset.name)">Capture biometrics</button> `;
+  if(e.status==='submitted'&&can.decide())act+=`<button class="btn ok" data-id="${esc(e.enrolment_id)}" data-name="${esc(e.citizen_name)}" onclick="decide(this.dataset.id,'approve',null,this.dataset.name)">Approve</button> <button class="btn bad" onclick="rejectDlg('${e.enrolment_id}')">Reject</button>`;
+  if(e.status==='flagged'&&can.decide())act+=`<span style="color:var(--warn)">resolve match case first</span>`;
+  if(!act)act=`<span style="color:var(--mut)">${esc(e.decision_reason||'')}</span>`;
+  return `<tr><td class="mono">${esc(e.enrolment_id.slice(0,8))}</td><td>${esc(e.citizen_name)}</td><td class="mono">${esc(e.centre_code)}</td><td>${badge(e.status)}</td><td>${steps(e)}</td><td class="mono">${esc(fmt(e.submitted_at))}</td><td>${act}</td></tr>`;
+ }).join('');
+ return `<div class="row">${sts.map(s=>`<button class="chip ${s===ef?'on':''}" onclick="ef='${s}';render()">${s}</button>`).join('')}<span class="sp"></span>
+  ${can.enrol()?'<button class="btn pri" onclick="openEnrol()">+ New enrolment</button>':''}</div>
+  <div class="card tw"><table><tr><th>ID</th><th>Citizen</th><th>Centre</th><th>Status</th><th>Progress</th><th>Submitted</th><th>Action</th></tr>${rows||'<tr><td colspan="7">No enrolments</td></tr>'}</table></div>`;
+};
+
+V.matches=async()=>{
+ const list=await api('GET','/matches');
+ return `<div class="mc">${list.map(m=>`<div class="card"><div class="row" style="margin:0"><b class="mono">${esc(m.match_case_id.slice(0,8))}</b>${badge(m.status)}<span class="sp"></span><span class="mono">${esc(m.modality)}</span></div>
+  <p style="margin:10px 0 0">Applicant <b>${esc(m.applicant_name)}</b> may match existing citizen <b>${esc(m.candidate_name)}</b> <span class="mono">${esc(m.candidate_identity_number||'')}</span></p>
+  <div class="score"><i style="width:${Math.min(Number(m.match_score),100)}%"></i></div><div class="mono">match score ${Number(m.match_score).toFixed(1)} / 100</div>
+  ${m.status==='pending_review'&&can.decide()?`<div class="row" style="margin:12px 0 0"><button class="btn bad" onclick="reviewMatch('${m.match_case_id}','confirmed_duplicate')">Confirm duplicate</button><button class="btn ok" onclick="reviewMatch('${m.match_case_id}','false_match')">False match</button></div>`:''}
+  ${m.reviewed_by_name?`<div class="hint">Reviewed by ${esc(m.reviewed_by_name)} at ${esc(fmt(m.reviewed_at))}</div>`:''}</div>`).join('')||'<div class="card">No match cases</div>'}</div>`;
+};
+
+function citRows(list){
+ return list.map(c=>`<tr><td class="mono">${esc(c.identity_number||'-')}</td><td>${esc(c.full_name)}</td><td class="mono">${esc(String(c.date_of_birth).slice(0,10))}</td><td>${esc(c.district||'-')}</td><td>${badge(c.status)}</td>
+  <td>${c.fingerprint_quality!==null?`<span class="b active">FP ${Number(c.fingerprint_quality).toFixed(0)}</span>`:''} ${c.iris_quality!==null?`<span class="b active">IRIS ${Number(c.iris_quality).toFixed(0)}</span>`:'<span style="color:var(--mut)">-</span>'}</td></tr>`).join('')||'<tr><td colspan="6">No matching citizens</td></tr>';
+}
+V.citizens=async()=>{
+ const list=await api('GET','/citizens'+(cq?'?search='+encodeURIComponent(cq):''));
+ return `<div class="row"><input id="cs" placeholder="Search name, number or district" value="${esc(cq)}" style="width:min(340px,100%)" onkeydown="if(event.key==='Enter'){cq=this.value.trim();render()}"><button class="btn" onclick="cq=$('#cs').value.trim();render()">Search</button></div>
+  <div class="card tw"><table><tr><th>Identity no.</th><th>Name</th><th>Date of birth</th><th>District</th><th>Status</th><th>Biometrics</th></tr><tbody>${citRows(list)}</tbody></table></div>`;
+};
+
+V.verify=async()=>`<div class="card"><h3>Identity verification terminal</h3>
+ <div class="row"><input id="vnum" class="mono" placeholder="e.g. 100001/10/1" style="width:min(320px,100%)" onkeydown="if(event.key==='Enter')runVerify()">
+ ${features.simulator?'<select id="vwho"><option value="genuine">Presenting: the real holder</option><option value="impostor">Presenting: a different person</option></select>':''}
+ <button class="btn pri" onclick="runVerify()">Verify</button></div>
+ <div class="term" id="term">${vlog.map(l=>`<div class="${l.c}">${esc(l.m)}</div>`).join('')}</div>
+ <p class="hint">The number is checked, then the fingerprint presented is compared with the encrypted one on record. Providers receive only the result and the name.</p></div>`;
+
+V.audit=async()=>{
+ const q=new URLSearchParams({limit:'100'});if(af.o!=='all')q.set('outcome',af.o);if(af.q)q.set('search',af.q);
+ const list=await api('GET','/audit?'+q);
+ return `<div class="row"><input id="aq" placeholder="Filter actor, action, entity" value="${esc(af.q)}" style="width:min(300px,100%)" onkeydown="if(event.key==='Enter'){af.q=this.value.trim();render()}">
+  <select onchange="af.o=this.value;render()">${['all','success','denied','failure'].map(o=>`<option ${o===af.o?'selected':''}>${o}</option>`).join('')}</select><button class="btn" onclick="af.q=$('#aq').value.trim();render()">Filter</button></div>
+  <div class="card tw"><table><tr><th>Time</th><th>Actor</th><th>Role</th><th>Action</th><th>Entity</th><th>Outcome</th></tr>${list.map(a=>`<tr><td class="mono">${esc(fmt(a.occurred_at))}</td><td>${esc(a.actor_name)}</td><td class="mono">${esc(a.actor_role||'-')}</td><td class="mono" style="color:var(--acc2)">${esc(a.action)}</td><td class="mono">${esc((a.entity_id||'-').slice(0,36))}</td><td>${badge(a.outcome)}</td></tr>`).join('')||'<tr><td colspan="6">No events</td></tr>'}</table></div>
+  <p class="hint">Append-only: the application can add events but never edit or delete them.</p>`;
+};
+
+/* ---------- enrolment wizard: details -> capture -> submitted ---------- */
+async function openEnrol(){
+ let centres=[];try{centres=await api('GET','/centres')}catch(e){toast(e.message,true)}
+ const mine=centres.find(c=>c.centre_id===me.centreId);
+ $('#dlgBody').innerHTML=`<h3 style="margin:0 0 6px">New enrolment</h3>
+  <label>Full name</label><input id="rn"><label>Date of birth</label><input id="rd" type="date"><label>District</label><input id="rdist">
+  <label>Registration centre</label><select id="rc">${centres.map(c=>`<option value="${esc(c.centre_id)}" ${mine&&mine.centre_id===c.centre_id?'selected':''}>${esc(c.centre_code)} - ${esc(c.name)}</option>`).join('')}</select>
+  <div class="row" style="margin:18px 0 0;justify-content:flex-end"><button class="btn" onclick="$('#dlg').close()">Cancel</button><button class="btn pri" onclick="submitEnrol()">Create enrolment</button></div>`;
+ $('#dlg').showModal();
+}
+async function submitEnrol(){
+ const name=$('#rn').value.trim(),dob=$('#rd').value;
+ if(!name||!dob)return toast('Name and date of birth are required',true);
+ try{
+  const r=await api('POST','/enrolments',{fullName:name,dateOfBirth:dob,district:$('#rdist').value.trim(),centreId:$('#rc').value});
+  current={id:r.enrolmentId,name,fp:false,iris:false};
+  showCapture([{c:'ok',m:'Enrolment created: '+r.enrolmentId.slice(0,8)+' (status: submitted)'}]);
+ }catch(e){toast(e.message,true)}
+}
+async function openCapture(id,name){current={id,name,fp:false,iris:false};showCapture([{c:'dim',m:'Capturing biometrics for '+name}])}
+async function showCapture(log){
+ let people=[];
+ if(features.simulator){try{people=(await api('GET','/citizens')).filter(c=>c.fingerprint_quality!==null&&c.iris_quality!==null&&c.status==='active')}catch{/* optional */}}
+ current.log=log;current.people=people;drawCapture();
+ $('#dlg').showModal();
+}
+function drawCapture(){
+ const done=current.fp&&current.iris;
+ $('#dlgBody').innerHTML=`<h3 style="margin:0 0 6px">Biometric capture</h3>
+  <div class="bio"><div><b>Fingerprint</b><small>${current.fp?'stored, encrypted':'not captured'}</small></div><button class="btn" ${current.fp?'disabled':''} onclick="capture('fingerprint')">Capture</button></div>
+  <div class="bio"><div><b>Iris</b><small>${current.iris?'stored, encrypted':'not captured'}</small></div><button class="btn" ${current.iris?'disabled':''} onclick="capture('iris')">Capture</button></div>
+  ${features.simulator?`<label>Demo control: who is at the scanner?</label><select id="rp"><option value="">New person (random biometrics)</option>${current.people.map(p=>`<option value="${esc(p.citizen_id)}">Same person as ${esc(p.full_name)} (${esc(p.identity_number)})</option>`).join('')}</select>`:'<p class="hint">No scanner is connected and the simulator is off.</p>'}
+  <div class="log" id="clog">${current.log.map(l=>`<div class="${l.c}">${esc(l.m)}</div>`).join('')}</div>
+  <div class="row" style="margin:6px 0 0;justify-content:flex-end"><button class="btn ${done?'pri':''}" onclick="$('#dlg').close();render()">${done?'Done':'Close'}</button></div>`;
+}
+async function capture(modality){
+ const sameAs=features.simulator&&$('#rp')&&$('#rp').value||null;
+ const key=modality==='fingerprint'?'fp':'iris';
+ current.log.push({c:'dim',m:'Scanning '+modality+'...'});drawCapture();
+ try{
+  const r=await api('POST','/enrolments/'+current.id+'/biometrics',{modality,simulate:sameAs?{sameAs}:{}});
+  current[key]=true;
+  current.log.push({c:'ok',m:'Encrypted and stored '+modality+' template (quality '+(r.quality??'-')+')'});
+  if(r.duplicateSearch&&r.duplicateSearch.ran)current.log.push(r.duplicateSearch.flagged?{c:'bad',m:'Possible duplicate found: enrolment flagged for human review'}:{c:'ok',m:'Duplicate search: '+r.duplicateSearch.compared+' records compared, no match'});
+  if(current.fp&&current.iris)current.log.push({c:'ok',m:'Enrolment complete. A reviewer must approve it before an identity number is issued.'});
+ }catch(e){current.log.push({c:'bad',m:e.message})}
+ drawCapture();
+}
+
+/* ---------- decisions ---------- */
+function showId(number,name){
+ $('#dlgBody').innerHTML=`<h3 style="margin:0 0 12px">Identity issued</h3><div class="idc"><div class="idh">DIGITAL IDENTITY RECORD</div><div class="idn">${esc(number)}</div>
+  <div class="idg"><div><label>Full name</label>${esc(name)}</div><div><label>Issued</label>${esc(ts().slice(0,10))}</div><div><label>Status</label>${badge('active')}</div><div><label>Biometrics bound</label>Fingerprint + iris</div></div>
+  <div class="idnote">Stored in the database. Biometrics are held encrypted.</div></div>
+  <div class="row" style="margin:16px 0 0;justify-content:flex-end"><button class="btn pri" onclick="$('#dlg').close();render()">Done</button></div>`;
+ $('#dlg').showModal();
+}
+async function decide(id,decision,reason,name){
+ try{
+  const r=await api('POST','/enrolments/'+id+'/decision',{decision,reason});
+  if(decision==='approve')showId(r.identityNumber,name);else{toast('Enrolment rejected');render()}
+ }catch(e){toast(e.message,true);render()}
+}
+function rejectDlg(id){
+ $('#dlgBody').innerHTML=`<h3 style="margin:0 0 6px">Reject enrolment</h3><label>Reason (required)</label><input id="rr">
+  <div class="row" style="margin:18px 0 0;justify-content:flex-end"><button class="btn" onclick="$('#dlg').close()">Cancel</button><button class="btn bad" onclick="const r=$('#rr').value.trim();if(!r)return toast('A reason is required',true);$('#dlg').close();decide('${id}','reject',r,'')">Reject</button></div>`;
+ $('#dlg').showModal();
+}
+async function reviewMatch(id,decision){
+ try{await api('POST','/matches/'+id+'/review',{decision});toast('Match case updated');render()}catch(e){toast(e.message,true)}
+}
+async function runVerify(){
+ const n=$('#vnum').value.trim();if(!n)return;
+ const who=$('#vwho')?$('#vwho').value:null;
+ vlog.push({c:'dim',m:'> verify '+n});
+ try{
+  const r=await api('POST','/verify',{identityNumber:n,...(who?{simulate:who}:{})});
+  const t=ts().slice(11),sc=r.score!==undefined?'  (fingerprint score '+Number(r.score).toFixed(1)+')':'';
+  vlog.push(r.result==='verified'?{c:'ok',m:`[${t}] ${n}  ->  VERIFIED  ${r.name}${sc}`}:{c:'bad',m:`[${t}] ${n}  ->  ${r.result==='revoked'?'NOT VALID (identity not active)':'NOT VERIFIED'}${sc}`});
+ }catch(e){vlog.push({c:'bad',m:e.message})}
+ await render();const t=$('#term');if(t)t.scrollTop=t.scrollHeight;const i=$('#vnum');if(i)i.focus();
+}
+
+$('#lp').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+if(token&&me)start();else showLogin();
+</script>
+</body>
+</html>

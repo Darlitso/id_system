@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { irisScore } from "../src/dedup/irisMatcher.js";
-import { findCandidates } from "../src/dedup/candidates.js";
+import { irisScore } from "../dedup/irisMatcher.js";
+import { findCandidates } from "../dedup/candidates.js";
 
 // Synthetic data only.
 const code = () => randomBytes(256); // 2048 bits

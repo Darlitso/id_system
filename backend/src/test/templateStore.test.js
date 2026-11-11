@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { createTemplateCipher } from "../src/biometrics/cipher.js";
-import { saveTemplate } from "../src/biometrics/templateStore.js";
+import { createTemplateCipher } from "../biometrics/cipher.js";
+import { saveTemplate } from "../biometrics/templateStore.js";
 
 const cipher = createTemplateCipher({
   activeId: "k1",

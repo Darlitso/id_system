@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { createTemplateCipher, loadKeyring } from "../src/biometrics/cipher.js";
+import { createTemplateCipher, loadKeyring } from "../biometrics/cipher.js";
 
 const keyring = () => ({
   activeId: "k1",
